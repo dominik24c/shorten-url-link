@@ -2,6 +2,7 @@ from django.conf import settings
 from django.http.response import HttpResponse
 from django.http.request import HttpRequest
 from django.shortcuts import redirect
+from django.db.models import F
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -31,7 +32,7 @@ class GeneratorOfUrlsCreateView(CreateAPIView):
 
             url = generate_url(validated_url)
             alias_url = f'{request.META.get("HTTP_HOST", settings.BASE_URL)}/{url}'
-            generated_url_obj = GeneratedUrls(origin_url=origin_url, alias_url=url)
+            generated_url_obj = GeneratedUrls(origin_url=origin_url, alias_url=url, ip_user=request.META['REMOTE_ADDR'])
             generated_url_obj.save()
 
             return Response({"url": alias_url}, status=status.HTTP_201_CREATED)
@@ -43,4 +44,6 @@ def retrieve_to_origin_url(request: HttpRequest, generated_url: str) -> HttpResp
     generated_url_obj = GeneratedUrls.objects.filter(alias_url=generated_url).first()
     if generated_url_obj is None:
         return HttpResponse("<h1>Not found url!</h1>", status=status.HTTP_404_NOT_FOUND)
+    generated_url_obj.visited = F('visited') + 1
+    generated_url_obj.save()
     return redirect(f'http://{generated_url_obj.origin_url}')
