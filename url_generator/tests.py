@@ -44,6 +44,13 @@ class GeneratorOfUrlsCreateViewTest(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data['url'], f'{settings.BASE_URL}/irwwyBE')
 
+        generated_url_obj = GeneratedUrls.objects.filter(alias_url='irwwyBE').first()
+
+        self.assertIsNotNone(generated_url_obj)
+        self.assertEqual(generated_url_obj.origin_url, 'fastapi.tiangolo.com/')
+        self.assertEqual(generated_url_obj.visited, 0)
+        self.assertEqual(generated_url_obj.ip_user, '127.0.0.1')
+
     def test_create_new_generated_url_view_with_invalid_data(self) -> None:
         settings.LENGTH_OF_GENERATED_URL = 7
         response = self.client.post(reverse('url_generator:create-new-url'),
@@ -55,12 +62,15 @@ class GeneratorOfUrlsCreateViewTest(APITestCase):
 
 class RedirectUrlView(TestCase):
     def test_redirect_to_origin_url_view(self) -> None:
-        obj = GeneratedUrls(origin_url='stackoverflow.com', alias_url='stack')
+        obj = GeneratedUrls(origin_url='stackoverflow.com', alias_url='stack', visited=5)
         obj.save()
 
         response = self.client.get(reverse('url_generator:retrieve-origin-url', kwargs={'generated_url': 'stack'}))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], 'http://stackoverflow.com')
+
+        obj.refresh_from_db()
+        self.assertEqual(obj.visited, 6)
 
     def test_redirect_to_origin_url_view_if_url_doesnt_exist(self) -> None:
         response = self.client.get(reverse('url_generator:retrieve-origin-url', kwargs={'generated_url': 'xxxx'}))
